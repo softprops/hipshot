@@ -109,9 +109,8 @@ trait Methods { self: Requests =>
       complete(usersBase.POST / "undelete" << Map("user_id" -> userId))
 
     def users(withDeleted: Boolean = false) =
-      complete(usersBase / "list" <<? Map.empty[String, String] ++
-        Some("1").filter(Function.const(withDeleted))
-          .map("included_deleted" -> _))
+      complete(usersBase / "list" <<? Map(
+        "include_deleted" -> Bool(withDeleted)))
 
     def show(userId: String) =
       complete(usersBase / "show" <<? Map("user_id" -> userId))
