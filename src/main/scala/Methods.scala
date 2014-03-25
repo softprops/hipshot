@@ -22,8 +22,7 @@ trait Methods { self: Requests =>
                  "owner_user_id" -> ownerId,
                  "privacy"       -> Some("public").filter(
                    Function.const(public)).getOrElse("private"),
-                 "guest_access"  -> Some("1").filter(
-                   Function.const(guests)).getOrElse("0")) ++
+                 "guest_access"  -> Bool(guests)) ++
                  topic.map("topic" -> _))
 
     def list = complete(roomsBase / "list")
@@ -41,8 +40,7 @@ trait Methods { self: Requests =>
                  "from" -> from,
                  "message" -> message,
                  "format" -> format,
-                 "notify" -> Some("1").filter(
-                   Function.const(notify)).getOrElse("0"),
+                 "notify" -> Bool(notify),
                  "color" -> color))
 
     def topic(
@@ -77,6 +75,7 @@ trait Methods { self: Requests =>
       def title(t: String) = copy(_title = Some(t))
       def admin(is: Boolean) = copy(_admin = Some(is))
       def password(pass: String) = copy(_password = Some(pass))
+      /** https://www.hipchat.com/docs/api/timezones */
       def timezone(tz: String) = copy(_timezone = Some(tz))
 
       def apply[T]
@@ -88,7 +87,7 @@ trait Methods { self: Requests =>
               _name.map("name" -> _) ++
               _mention.map("mention_name" -> _) ++
               _title.map("title" -> _) ++
-              _admin.filter(identity).map(_ => ("is_group_admin" -> "1")) ++
+              _admin.map("is_group_admin" -> Bool(_)) ++
               _password.map("password" -> _) ++
               _timezone.map("timezone" -> _))(handler)
 
