@@ -1,47 +1,53 @@
 package hipshot
 
 import scala.concurrent.ExecutionContext
+import org.json4s.native.Printer.compact
+import org.json4s.native.JsonMethods.render
+import org.json4s.JsonDSL._
+
+// https://www.hipchat.com/docs/apiv2
 
 trait Methods { self: Requests =>
 
   object rooms {
+    private[this] def roomBase = apiBase / "room"
     private[this] def roomsBase = apiBase / "rooms"
-
+    
     def delete(id: String) =
       complete(roomsBase.POST / "delete" << Map("room_id" -> id))
 
+    // manage_rooms scope
     def create(
       name: String,
-      ownerId: String,
+      ownerId: Option[String] = None,
       public: Boolean = true,
-      topic: Option[String] = None,
       guests: Boolean = false) =
-      complete(roomsBase.POST / "create"
-               << Map(
-                 "name"          -> name,
-                 "owner_user_id" -> ownerId,
-                 "privacy"       -> Some("public").filter(
-                   Function.const(public)).getOrElse("private"),
-                 "guest_access"  -> Bool(guests)) ++
-                 topic.map("topic" -> _))
+      complete(roomBase.POST
+             << compact(render(
+               ("name" -> name) ~
+               ("owner_user_id" -> ownerId) ~
+               ("privacy" -> Privacy(public)) ~
+               ("guest_access" -> guests))))
 
-    def list = complete(roomsBase / "list")
+    // view_group scope
+    def list(start: Int = 0, max: Int = 100) =
+      complete(roomBase <<? Map("start-index" -> start.toString,
+                                "max-results" -> max.toString))
 
-    def message(
+    // send_notification scope
+    def notify(
       room: String,
-      from: String,
       message: String,
-      format: String  = "text",
+      color: String = "yellow",
       notify: Boolean = false,
-      color: String   = "yellow") =
-      complete(roomsBase.POST / "message"
-               << Map(
-                 "room_id" -> room,
-                 "from" -> from,
-                 "message" -> message,
-                 "format" -> format,
-                 "notify" -> Bool(notify),
-                 "color" -> color))
+      format: String = "text") =
+      complete(roomBase.POST / room / "notification"
+             << compact(render(
+               ("color" -> color) ~
+               ("message" -> message) ~
+               ("notify" -> notify) ~
+               ("message_format" -> format))))
+
 
     def topic(
       room: String,
