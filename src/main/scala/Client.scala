@@ -14,7 +14,7 @@ object Client {
 }
 
 trait DefaultHosts {
-  def apiBase = :/("api.hipchat.com").secure / "v2"
+  def apiBase = :/("api.hipchat.com").secure / "v2" <:< Map("Content-Type" -> "application/json")
 }
 
 abstract class Requests(
