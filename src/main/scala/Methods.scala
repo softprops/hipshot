@@ -119,10 +119,12 @@ trait Methods { self: Requests =>
       def apply[T]
         (start: Int = 0, max: Int = 100)
         (handler: Client.Handler[T])
-        (implicit ec: ExecutionContext) =
-        complete(memberBase <<? Map(
+        (implicit ec: ExecutionContext) = {
+        println(memberBase.toRequest.getUrl)
+        request(memberBase.GET <<? Map(
           "start-index" -> start.toString,
-          "max-results" -> max.toString))
+          "max-results" -> max.toString))(handler)
+        }
 
       /** https://www.hipchat.com/docs/apiv2/method/add_member */
       def add(user: String) =
