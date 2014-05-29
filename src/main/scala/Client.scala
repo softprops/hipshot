@@ -8,8 +8,7 @@ object Client {
   type Handler[T] = AsyncHandler[T]
   trait Completion {
     def apply[T]
-      (handler: Client.Handler[T])
-      (implicit ec: ExecutionContext): Future[T]
+      (handler: Client.Handler[T]): Future[T]
   }
 }
 
@@ -19,21 +18,23 @@ trait DefaultHosts {
 
 abstract class Requests(
   token: String, http: Http = Http)
+  (implicit ec: ExecutionContext)
   extends DefaultHosts
   with Methods {
 
   def request[T]
     (req: Req)
-    (handler: Client.Handler[T])
-    (implicit ec: ExecutionContext): Future[T] =
+    (handler: Client.Handler[T]): Future[T] =
     http(req <<? Map("auth_token" -> token) > handler)
 
   def complete(req: Req): Client.Completion =
     new Client.Completion {
-      override def apply[T](handler: Client.Handler[T])(implicit ec: ExecutionContext) =
+      override def apply[T](handler: Client.Handler[T]) =
         request(req)(handler)
     }
 }
 
-case class Client(token: String, http: Http = Http)
+case class Client(
+  token: String, http: Http = Http)
+  (implicit ec: ExecutionContext)
   extends Requests(token)
