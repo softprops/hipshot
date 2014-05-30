@@ -56,10 +56,26 @@ trait Methods { self: Requests =>
                ("guest_access" -> guests)))
 
     /** https://www.hipchat.com/docs/apiv2/method/update_room */
-    //def update()
+    // admin_room scope
+    def update(
+      roomId: String,
+      name: String,
+      public: Boolean,
+      archived: Boolean,
+      guests: Boolean,
+      topic: String,
+      owner: String) =
+      complete(json.content(roomBase.PUT / roomId)
+               << json.str(
+                 ("name" -> name) ~
+                 ("privacy" -> Privacy(public)) ~
+                 ("is_archived" -> archived) ~
+                 ("is_guest_accessible" -> guests) ~
+                 ("topic" -> topic) ~
+                 ("owner" -> ("id" -> owner))))
 
     // view_group scope
-    def list(start: Int = 0, max: Int = 100) =
+    def apply(start: Int = 0, max: Int = 100) =
       complete(roomBase <<? Map("start-index" -> start.toString,
                                 "max-results" -> max.toString))
 
@@ -139,6 +155,7 @@ trait Methods { self: Requests =>
       def remove(user: String) =
         complete(memberBase.DELETE / user)
 
+      /** https://www.hipchat.com/docs/apiv2/method/invite_user */
       def invite(user: String) =
         complete(apiBase.POST / "room" / room / "invite" / user)
     }
@@ -146,8 +163,8 @@ trait Methods { self: Requests =>
     def members(room: String) = Members(room)
 
     def topic(room: String, name: String) =
-      complete(json.content(apiBase.PUT) / room / "topic" << json.str(
-        "topic" -> name))
+      complete(json.content(apiBase.PUT) / room / "topic"
+               << json.str("topic" -> name))
   }
 
   object users {
