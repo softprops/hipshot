@@ -1,12 +1,17 @@
 package hipshot
 
-import com.ning.http.client.AsyncHandler
-import dispatch.{ Http, Req, :/ }
+import com.ning.http.client.{ AsyncHandler, Response }
+import dispatch.{ FunctionHandler, Http, Req, :/ }
 import scala.concurrent.{ ExecutionContext, Future }
 
 object Client {
   type Handler[T] = AsyncHandler[T]
   trait Completion {
+    def apply(): Future[Response] =
+      apply(new FunctionHandler(identity))
+    def apply[T]
+      (f: Response => T): Future[T] =
+        apply(new FunctionHandler(f))
     def apply[T]
       (handler: Client.Handler[T]): Future[T]
   }
@@ -17,7 +22,7 @@ trait DefaultHosts {
 }
 
 abstract class Requests(
-  token: String, http: Http = Http)
+  token: String, http: Http)
   (implicit ec: ExecutionContext)
   extends DefaultHosts
   with Methods {
@@ -35,6 +40,6 @@ abstract class Requests(
 }
 
 case class Client(
-  token: String, http: Http = Http)
+  token: String, private val http: Http = Http)
   (implicit ec: ExecutionContext)
-  extends Requests(token)
+  extends Requests(token, http)
