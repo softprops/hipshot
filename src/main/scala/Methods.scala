@@ -5,6 +5,7 @@ import org.json4s.JsonDSL._
 import org.json4s.JValue
 import org.json4s.native.JsonMethods.render
 import org.json4s.native.Printer.compact
+import scala.concurrent.Future
 
 // https://www.hipchat.com/docs/apiv2
 
@@ -89,25 +90,36 @@ trait Methods { self: Requests =>
 
     case class Notify(
       _room: String,
-      _message: (String, String),
-      _color: String = "yellow",
-      _notify: Boolean = false) extends Client.Completion {
+      _message: Option[(String, String)] = None,
+      _color: String                     = "yellow",
+      _notify: Boolean                   = false)
+      extends Client.Completion {
+      def yellow = copy(_color = "yellow")
+      def green = copy(_color = "green")
+      def red = copy(_color = "red")
+      def purple = copy(_color = "purple")
+      def gray = copy(_color = "gray")
+      def randomColor = copy(_color = "random")
       def room(r: String) = copy(_room = r)
-      def text(msg: String) = copy(_message = (msg, "text"))
-      def html(msg: String) = copy(_message = (msg, "html"))
+      def text(msg: String) = copy(_message = Some((msg, "text")))
+      def html(msg: String) = copy(_message = Some((msg, "html")))
       def apply[T](handler: Client.Handler[T]) =
-        request(json.content(roomBase.POST) / _room / "notification"
-             << json.str(
-               ("color" -> _color) ~
-               ("message" -> _message._1) ~
-               ("message_format" -> _message._2) ~
-               ("notify" -> _notify)))(handler)
+        _message match {
+          case Some((msg, fmt)) =>
+            request(json.content(roomBase.POST) / _room / "notification"
+                    << json.str(
+                      ("color" -> _color) ~
+                      ("notify" -> _notify) ~
+                      ("message" -> msg) ~
+                      ("message_format" -> fmt)))(handler)
+          case _ =>
+            Future.failed(new RuntimeException("message required"))
+        }
     }
 
     // send_notification scope
     /** https://www.hipchat.com/docs/apiv2/method/send_room_notification */
-    def notify(room: String, message: String) =
-      Notify(room, (message, "text"))
+    def notify(room: String) = Notify(room)
 
     /** https://www.hipchat.com/docs/apiv2/method/get_room */
     def get(room: String) =
