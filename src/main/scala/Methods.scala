@@ -1,10 +1,10 @@
 package hipshot
 
 import dispatch.Req
-import org.json4s.JValue
-import org.json4s.native.Printer.compact
-import org.json4s.native.JsonMethods.render
 import org.json4s.JsonDSL._
+import org.json4s.JValue
+import org.json4s.native.JsonMethods.render
+import org.json4s.native.Printer.compact
 
 // https://www.hipchat.com/docs/apiv2
 
@@ -41,26 +41,34 @@ trait Methods { self: Requests =>
     def delete(id: String) =
       complete(roomBase.DELETE /  id)
 
+    case class CreateRoom(
+      _name: String,
+      _ownerId: Option[String] = None,
+      _privacy: Privacy = Privacy.Public,
+      _guests: Boolean = false) extends Client.Completion {
+      def name(name: String) = copy(_name = name)
+      def owner(id: String) = copy(_ownerId = Some(id))
+      def guests(enable: Boolean) = copy(_guests = enable)
+      def privacy(priv: Privacy) = copy(_privacy = priv)
+      def apply[T](handler: Client.Handler[T]) =
+        request(json.content(roomBase.POST)
+             << json.str(
+               ("name" -> _name) ~
+               ("owner_user_id" -> _ownerId) ~
+               ("privacy" -> _privacy.value) ~
+               ("guest_access" -> _guests)))(handler)
+    }
+
     // manage_rooms scope
     /** https://www.hipchat.com/docs/apiv2/method/create_room */
-    def create(
-      name: String,
-      ownerId: Option[String] = None,
-      public: Boolean = true,
-      guests: Boolean = false) =
-      complete(json.content(roomBase.POST)
-             << json.str(
-               ("name" -> name) ~
-               ("owner_user_id" -> ownerId) ~
-               ("privacy" -> Privacy(public)) ~
-               ("guest_access" -> guests)))
+    def create(name: String) = CreateRoom(name)
 
     /** https://www.hipchat.com/docs/apiv2/method/update_room */
     // admin_room scope
     def update(
       roomId: String,
       name: String,
-      public: Boolean,
+      privacy: Privacy,
       archived: Boolean,
       guests: Boolean,
       topic: String,
@@ -68,7 +76,7 @@ trait Methods { self: Requests =>
       complete(json.content(roomBase.PUT / roomId)
                << json.str(
                  ("name" -> name) ~
-                 ("privacy" -> Privacy(public)) ~
+                 ("privacy" -> privacy.value) ~
                  ("is_archived" -> archived) ~
                  ("is_guest_accessible" -> guests) ~
                  ("topic" -> topic) ~
@@ -79,20 +87,27 @@ trait Methods { self: Requests =>
       complete(roomBase <<? Map("start-index" -> start.toString,
                                 "max-results" -> max.toString))
 
+    case class Notify(
+      _room: String,
+      _message: (String, String),
+      _color: String = "yellow",
+      _notify: Boolean = false) extends Client.Completion {
+      def room(r: String) = copy(_room = r)
+      def text(msg: String) = copy(_message = (msg, "text"))
+      def html(msg: String) = copy(_message = (msg, "html"))
+      def apply[T](handler: Client.Handler[T]) =
+        request(json.content(roomBase.POST) / _room / "notification"
+             << json.str(
+               ("color" -> _color) ~
+               ("message" -> _message._1) ~
+               ("message_format" -> _message._2) ~
+               ("notify" -> _notify)))(handler)
+    }
+
     // send_notification scope
     /** https://www.hipchat.com/docs/apiv2/method/send_room_notification */
-    def notify(
-      room: String,
-      message: String,
-      color: String = "yellow",
-      notify: Boolean = false,
-      format: String = "text") =
-      complete(json.content(roomBase.POST) / room / "notification"
-             << json.str(
-               ("color" -> color) ~
-               ("message" -> message) ~
-               ("notify" -> notify) ~
-               ("message_format" -> format)))
+    def notify(room: String, message: String) =
+      Notify(room, (message, "text"))
 
     /** https://www.hipchat.com/docs/apiv2/method/get_room */
     def get(room: String) =
@@ -237,15 +252,24 @@ trait Methods { self: Requests =>
 
     def update(userId: String) = Editor(Some(userId))
 
+    case class Search(
+      _start: Int       = 0,
+      _max: Int         = 100,
+      _guests: Boolean  = false,
+      _deleted: Boolean = false) extends Client.Completion {
+      def startIndex(start: Int) = copy(_start = start)
+      def max(lim: Int) = copy(_max = lim)
+      def guests(incl: Boolean) = copy(_guests = incl)
+      def deleted(incl: Boolean) = copy(_deleted = incl)
+      def apply[T](handler: Client.Handler[T]) =
+        request(userBase <<? Map(
+          "start-index" -> _start.toString,
+          "max-results" -> _max.toString,
+          "include-guests" -> _guests.toString,
+          "include-deleted" -> _deleted.toString))(handler)
+    }
+
     /** https://www.hipchat.com/docs/apiv2/method/get_all_users */
-    def apply[T]
-      (start: Int = 0, max: Int = 100,
-       guests: Boolean = false, deleted: Boolean = false)
-      (handler: Client.Handler[T]) =
-      request(userBase <<? Map(
-        "start-index" -> start.toString,
-        "max-results" -> max.toString,
-        "include-guests" -> guests.toString,
-        "include-deleted" -> deleted.toString))(handler)
+    def apply = Search()
   }
 }
