@@ -42,4 +42,7 @@ abstract class Requests(
 case class Client(
   token: String, private val http: Http = Http)
   (implicit ec: ExecutionContext)
-  extends Requests(token, http)
+  extends Requests(token, http) {
+  /** releases http resources. once closed, this client may no longer be used */
+  def close() = http.shutdown()
+}
