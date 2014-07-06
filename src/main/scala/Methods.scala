@@ -10,7 +10,6 @@ import scala.concurrent.Future
 // https://www.hipchat.com/docs/apiv2
 
 trait Methods { self: Requests =>
-
   private object json {
     private[this] val Typ = "application/json"
     private[this] val Encoding = "UTF-8"
@@ -22,16 +21,20 @@ trait Methods { self: Requests =>
   object emoticons {
     private[this] def emoticonBase = apiBase / "emoticon"
 
-    def apply[T]
-      (start: Int = 0, max: Int = 100, kind: String = "all")
-      (handler: Client.Handler[T]) =
-      request(emoticonBase <<? Map(
+    case class Emoticons(
+      start: Int = 0, max: Int = 100, kind: String = "all")
+      extends Client.Completion[Results[Emoticon]] {
+      def apply[T](handler: Client.Handler[T]) =
+        request(emoticonBase <<? Map(
         "start-index" -> start.toString,
         "max-results" -> max.toString,
         "type" -> kind))(handler)
+    }
+
+    def list = Emoticons()
 
     def get(emo: String) =
-      complete(emoticonBase / emo)
+      complete[EmoticonDetails](emoticonBase / emo)
   }
 
   object rooms {
@@ -40,13 +43,14 @@ trait Methods { self: Requests =>
     // manage_rooms scope
     /** https://www.hipchat.com/docs/apiv2/method/delete_room */
     def delete(id: String) =
-      complete(roomBase.DELETE /  id)
+      complete[Unit](roomBase.DELETE /  id)
 
     case class CreateRoom(
       _name: String,
       _ownerId: Option[String] = None,
-      _privacy: Privacy = Privacy.Public,
-      _guests: Boolean = false) extends Client.Completion {
+      _privacy: Privacy        = Privacy.Public,
+      _guests: Boolean         = false)
+      extends Client.Completion[Unit] {
       def name(name: String) = copy(_name = name)
       def owner(id: String) = copy(_ownerId = Some(id))
       def guests(enable: Boolean) = copy(_guests = enable)
@@ -74,7 +78,7 @@ trait Methods { self: Requests =>
       guests: Boolean,
       topic: String,
       owner: String) =
-      complete(json.content(roomBase.PUT / roomId)
+      complete[Unit](json.content(roomBase.PUT / roomId)
                << json.str(
                  ("name" -> name) ~
                  ("privacy" -> privacy.value) ~
@@ -83,17 +87,22 @@ trait Methods { self: Requests =>
                  ("topic" -> topic) ~
                  ("owner" -> ("id" -> owner))))
 
+    case class Rooms(start: Int = 0, max: Int = 100)
+      extends Client.Completion[Results[Room]] {
+      def apply[T](handler: Client.Handler[T]) =
+        request(roomBase <<? Map("start-index" -> start.toString,
+                                 "max-results" -> max.toString))(handler)
+    }
+
     // view_group scope
-    def apply(start: Int = 0, max: Int = 100) =
-      complete(roomBase <<? Map("start-index" -> start.toString,
-                                "max-results" -> max.toString))
+    def list = Rooms()
 
     case class Notify(
       _room: String,
       _message: Option[(String, String)] = None,
       _color: String                     = "yellow",
       _notify: Boolean                   = false)
-      extends Client.Completion {
+      extends Client.Completion[Unit] {
       def yellow = copy(_color = "yellow")
       def green = copy(_color = "green")
       def red = copy(_color = "red")
@@ -123,23 +132,26 @@ trait Methods { self: Requests =>
 
     /** https://www.hipchat.com/docs/apiv2/method/get_room */
     def get(room: String) =
-      complete(roomBase / room)
+      complete[Unit](roomBase / room)
 
     // admin_room scope
     case class Webhooks(room: String) {
       private[this] def webhookBase = apiBase / "room" / room / "webhook"
 
+      case class List(start: Int = 0, max: Int = 100)
+        extends Client.Completion[Unit] {
+        def apply[T](handler: Client.Handler[T]) =
+          request(webhookBase <<? Map(
+            "start-index" -> start.toString,
+            "max-results" -> max.toString))(handler)
+      }
+
       /** https://www.hipchat.com/docs/apiv2/method/get_all_webhooks */
-      def apply[T]
-        (start: Int = 0, max: Int = 100)
-        (handler: Client.Handler[T]) =
-        request(webhookBase <<? Map(
-          "start-index" -> start.toString,
-          "max-results" -> max.toString))(handler)
+      def list = List()
 
       /** https://www.hipchat.com/docs/apiv2/method/get_webhook */
       def get(hook: String) =
-        complete(webhookBase / hook)
+        complete[Unit](webhookBase / hook)
 
       /** https://www.hipchat.com/docs/apiv2/method/create_webhook */
       def create(
@@ -147,7 +159,7 @@ trait Methods { self: Requests =>
         pattern: String,
         event: String,
         name: String) =
-        complete(json.content(webhookBase.POST) << json.str(
+        complete[Unit](json.content(webhookBase.POST) << json.str(
           ("url" -> url) ~
           ("pattern" -> pattern) ~
           ("event" -> event) ~
@@ -155,7 +167,7 @@ trait Methods { self: Requests =>
 
       /** https://www.hipchat.com/docs/apiv2/method/delete_webhook */
       def delete(hook: String) =
-        complete(webhookBase.DELETE / hook)
+        complete[Unit](webhookBase.DELETE / hook)
     }
 
     def webhooks(room: String) = Webhooks(room)
@@ -176,21 +188,21 @@ trait Methods { self: Requests =>
 
       /** https://www.hipchat.com/docs/apiv2/method/add_member */
       def add(user: String) =
-        complete(memberBase.PUT / user)
+        complete[Unit](memberBase.PUT / user)
 
       /** https://www.hipchat.com/docs/apiv2/method/remove_member */
       def remove(user: String) =
-        complete(memberBase.DELETE / user)
+        complete[Unit](memberBase.DELETE / user)
 
       /** https://www.hipchat.com/docs/apiv2/method/invite_user */
       def invite(user: String) =
-        complete(apiBase.POST / "room" / room / "invite" / user)
+        complete[Unit](apiBase.POST / "room" / room / "invite" / user)
     }
 
     def members(room: String) = Members(room)
 
     def topic(room: String, name: String) =
-      complete(json.content(apiBase.PUT) / room / "topic"
+      complete[Unit](json.content(apiBase.PUT) / room / "topic"
                << json.str("topic" -> name))
   }
 
@@ -206,12 +218,12 @@ trait Methods { self: Requests =>
         request(thisUser)(handler)
 
       def message(msg: String) =
-        complete(json.content(thisUser.POST) << json.str(
+        complete[Unit](json.content(thisUser.POST) << json.str(
           "message" -> msg))
 
       /** https://www.hipchat.com/docs/apiv2/method/delete_user */
       def delete =
-        complete(thisUser.DELETE)
+        complete[Unit](thisUser.DELETE)
 
       /** https://www.hipchat.com/docs/apiv2/method/update_user */
       //def update()
@@ -264,11 +276,12 @@ trait Methods { self: Requests =>
 
     def update(userId: String) = Editor(Some(userId))
 
-    case class Search(
+    case class Users(
       _start: Int       = 0,
       _max: Int         = 100,
       _guests: Boolean  = false,
-      _deleted: Boolean = false) extends Client.Completion {
+      _deleted: Boolean = false)
+      extends Client.Completion[Results[hipshot.User]] {
       def startIndex(start: Int) = copy(_start = start)
       def max(lim: Int) = copy(_max = lim)
       def guests(incl: Boolean) = copy(_guests = incl)
@@ -282,6 +295,6 @@ trait Methods { self: Requests =>
     }
 
     /** https://www.hipchat.com/docs/apiv2/method/get_all_users */
-    def apply = Search()
+    def list = Users()
   }
 }

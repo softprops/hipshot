@@ -1,13 +1,13 @@
 package hipshot
 
 sealed trait Privacy {
-  def value: String
+  def value: String =
+    getClass.getSimpleName.toLowerCase.replace("""$""", "")
 }
 
 object Privacy {
-  abstract class Value(val value: String) extends Privacy
-  case object Public extends Value("public")
-  case object Private extends Value("private")
+  case object Public extends Privacy
+  case object Private extends Privacy
   def fromStr(str: String) =
     str match {
       case "public" => Public

@@ -6,9 +6,9 @@ import scala.concurrent.{ ExecutionContext, Future }
 
 object Client {
   type Handler[T] = AsyncHandler[T]
-  trait Completion {
-    def apply(): Future[Response] =
-      apply(new FunctionHandler(identity))
+  abstract class Completion[T: Rep] {
+    def apply(): Future[T] =
+      apply(implicitly[Rep[T]].map)
     def apply[T]
       (f: Response => T): Future[T] =
         apply(new FunctionHandler(f))
@@ -32,8 +32,8 @@ abstract class Requests(
     (handler: Client.Handler[T]): Future[T] =
     http(req <<? Map("auth_token" -> token) > handler)
 
-  def complete(req: Req): Client.Completion =
-    new Client.Completion {
+  def complete[T: Rep](req: Req): Client.Completion[T] =
+    new Client.Completion[T] {
       override def apply[T](handler: Client.Handler[T]) =
         request(req)(handler)
     }
