@@ -44,5 +44,5 @@ case class Client(
   (implicit ec: ExecutionContext)
   extends Requests(token, http) {
   /** releases http resources. once closed, this client may no longer be used */
-  def close() = http.shutdown()
+  def close(): Unit = http.shutdown()
 }
