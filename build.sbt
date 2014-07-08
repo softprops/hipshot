@@ -34,3 +34,5 @@ pomExtra := (
     </developer>
   </developers>
 )
+
+seq(bintraySettings:_*)
